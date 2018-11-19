@@ -1,5 +1,8 @@
 # Documentation - Audioasyl Archive
 
+ - [Create Archive](archiving.md)
+ - [Use Archive](unarchiving.md)
+
 ## Archive File- & Directory Structure
 
 **Note about the naming:**  
