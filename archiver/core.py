@@ -8,6 +8,8 @@ import shutil
 
 import click
 
+from orator.exceptions.query import QueryException
+
 from .db import Broadcast, Program
 from .tags import write_tags
 from .utils import encode_data, parse_db_url
@@ -23,27 +25,66 @@ class Archiver(object):
     _archived_broadcasts = []
     _archived_programs = []
 
-    def __init__(self, dst_dir, src_dir=None, db_url=None):
+    def __init__(self, dst_dir=None, src_dir=None, db_url=None):
 
         self.dst_dir = dst_dir
         self.src_dir = src_dir
 
-        self.abs_dst_dir = os.path.abspath(dst_dir)
+        self.abs_dst_dir = os.path.abspath(dst_dir) if dst_dir else None
         self.abs_src_dir = os.path.abspath(src_dir) if src_dir else None
 
         if db_url:
             # not the most elegant way... pass db settings for orator
             from orator import DatabaseManager, Model
-            db = DatabaseManager({
+            self.db = DatabaseManager({
                 'default': parse_db_url(db_url)
             })
-            Model.set_connection_resolver(db)
+            Model.set_connection_resolver(self.db)
+
+
+    def prepare_db(self):
+
+        from orator import Schema
+        schema = Schema(self.db)
+
+        if not schema.has_column('program', 'file_missing'):
+            logger.info('adding "file_missing" column to program table')
+            with schema.table('program') as table:
+                table.boolean('file_missing').default(False)
+        else:
+            logger.debug('"file_missing" column present in program table')
+
+        qs = Program.with_('broadcasts', 'broadcasts.artists')\
+            .has('broadcasts') \
+            .where('file_missing', '=', False)
+
+        num_missing = 0
+        num_total = qs.count()
+
+        logger.info('total {} programs in db'.format(num_total))
+
+        for program in qs.get():
+
+            path = os.path.join(self.abs_src_dir, str(program.id), 'default.mp3')
+
+            if not os.path.isfile(path):
+                logger.warning('file missing: {}'.format(path))
+                program.file_missing = True
+                program.save()
+                num_missing += 1
+
+        logger.info('total {} programs (out of {}) without audio file'.format(num_missing, num_total))
+
+
+
+
 
     def archive_programs(self):
 
         qs = Program.with_('broadcasts', 'broadcasts.artists') \
             .left_join('cat_program_broadcast', 'program.program_id', '=', 'cat_program_broadcast.program_id') \
             .has('broadcasts') \
+            .where('file_missing', '=', False) \
             .order_by('cat_program_broadcast.broadcast_id')
 
         logger.info('archiving {} programs'.format(qs.count()))
@@ -95,7 +136,7 @@ class Archiver(object):
 
         # copy audio file
         # TODO: just testing - using dummy input file
-        # src_path = '/Users/ohrstrom/Documents/Code/audioasyl-archiver/data/in/dummy_1s.mp3'
+        #src_path = '/Users/ohrstrom/Documents/Code/audioasyl-archiver/data/in/dummy_1s.mp3'
         src_path = os.path.join(self.abs_src_dir, str(program.id), 'default.mp3')
         dst_path = os.path.join(dir, 'default.mp3')
 
@@ -156,7 +197,7 @@ class Archiver(object):
             _b = b.serialize()
             _b['programs'] = []
 
-            for p in b.programs.all():
+            for p in b.programs.where('file_missing', False):
                 _p = p.serialize()
                 _p.update({
                     'dir': p.dir,
@@ -186,6 +227,6 @@ class Archiver(object):
             path = os.path.join(dir, '{}.m3u'.format(b.title))
             with codecs.open(path, 'w', 'utf-8') as f:
                 f.write('#EXTM3U\n\n')
-                for p in b.programs.all():
+                for p in b.programs.where('file_missing', False):
                     f.write('#EXTINF:,{}\n'.format(p.title))
                     f.write('{}\n\n'.format(os.path.join('..', p.path)))

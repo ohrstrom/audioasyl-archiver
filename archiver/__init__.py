@@ -8,7 +8,7 @@ import click_log
 
 from .core import Archiver
 
-__version__ = '0.0.1'
+__version__ = '0.0.2'
 
 logger = logging.getLogger(__name__)
 click_log.basic_config(logger)
@@ -27,12 +27,54 @@ def version():
 
 
 @cli.command()
-@click.argument('scope', type=click.Choice(choices=['index', 'program', 'playlist']))
-@click.option('--db-url', '-h', 'db_url', type=str, required=True, help='database url: mysql://user:pass@localhost/db')
-@click.option('--src', '-s', 'src_dir', type=click.Path(exists=True, writable=True), required=False,
-              help='input/source directory')
-@click.option('--dst', '-d', 'dst_dir', type=click.Path(exists=True, writable=True), required=True,
-              help='output directory')
+@click.option(
+    '--db-url', '-h', 'db_url',
+    type=str,
+    required=True,
+    help='database url: mysql://user:pass@localhost/db'
+)
+@click.option(
+    '--src', '-s', 'src_dir',
+    type=click.Path(exists=True),
+    required=False,
+    help='input/source directory'
+)
+def prepare(db_url, src_dir):
+    """
+    marks all programs without corresponding audio file as excluded.
+    """
+    logger.info('prepare archive db: src: {}'.format(src_dir))
+
+    a = Archiver(src_dir=src_dir, db_url=db_url)
+
+    a.prepare_db()
+
+
+
+
+@cli.command()
+@click.argument(
+    'scope',
+    type=click.Choice(choices=['index', 'program', 'playlist'])
+)
+@click.option(
+    '--db-url', '-h', 'db_url',
+    type=str,
+    required=True,
+    help='database url: mysql://user:pass@localhost/db'
+)
+@click.option(
+    '--src', '-s', 'src_dir',
+    type=click.Path(exists=True),
+    required=False,
+    help='input/source directory'
+)
+@click.option(
+    '--dst', '-d', 'dst_dir',
+    type=click.Path(exists=True, writable=True),
+    required=True,
+    help='output directory'
+)
 def archive(scope, db_url, src_dir, dst_dir):
     logger.info('archive scope: {} - src: {} - dst: {}'.format(scope, src_dir, dst_dir))
 

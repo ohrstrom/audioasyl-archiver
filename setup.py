@@ -14,7 +14,7 @@ setup(
     author_email='ohrstrom@gmail.com',
     url='https://github.com/ohrstrom/audioasyl-archiver',
     name='AudioasylArchiver',
-    version='0.0.1',
+    version='0.0.2',
     description='...',
     packages=find_packages(),
     install_requires=INSTALL_REQUIREMENTS,

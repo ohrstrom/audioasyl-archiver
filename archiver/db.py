@@ -27,6 +27,7 @@ class Artist(Model):
 
     __table__ = 'artist'
     __primary_key__ = 'artist_id'
+    __timestamps__ = False
 
     __appends__ = [
         'id',
@@ -54,6 +55,7 @@ class Program(Model):
 
     __table__ = 'program'
     __primary_key__ = 'program_id'
+    __timestamps__ = False
 
     __dates__ = [
         'program_start',
@@ -174,6 +176,7 @@ class Broadcast(Model):
 
     __table__ = 'broadcast'
     __primary_key__ = 'broadcast_id'
+    __timestamps__ = False
 
     __appends__ = [
         'id',
